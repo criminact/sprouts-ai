@@ -3,17 +3,19 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from utils import groq_chat_completion
+from schemas import LLMModeration
 
 MODERATION_SYSTEM_PROMPT = (
     "You are a strict safety classifier for a chat with children aged 4-8.\n"
     "Consider the ENTIRE conversation history to infer intent.\n"
-    "Return ONLY JSON with keys: intent, must_block, category, severity, reasons.\n"
-    "intent: 'good' or 'bad' (bad = needs more details/concern).\n"
-    "must_block: true if content is disallowed for kids (e.g., sexual explicit, self-harm instructions, hate).\n"
-    "category: one of weapons, harassment, self_harm, sexual, drugs, hacking, pii, other.\n"
-    "severity: float 0.0-1.0.\n"
-    "reasons: short list of strings." 
+    "Return ONLY a JSON object with keys: intent, must_block, category, severity, reasons.\n"
+    "intent must be 'good' or 'bad' (bad = needs more details/concern).\n"
+    "must_block is a boolean true/false when content is disallowed for kids (e.g., sexual explicit, self-harm instructions, hate).\n"
+    "category is one of: weapons, harassment, self_harm, sexual, drugs, hacking, pii, other.\n"
+    "severity is a float from 0.0 to 1.0.\n"
+    "reasons is a short list of strings."
 )
+
 
 def classify_intent(messages: List[Dict[str, str]]) -> Dict[str, Any]:
     analysis = groq_chat_completion(
@@ -21,10 +23,7 @@ def classify_intent(messages: List[Dict[str, str]]) -> Dict[str, Any]:
             {"role": "system", "content": MODERATION_SYSTEM_PROMPT},
             *messages,
         ],
-        model="openai/gpt-oss-20b",
-        extra_params={
-            "temperature": 0
-        },
+        response_schema=LLMModeration,
     )
     # Ensure required keys exist with defaults
     return {
