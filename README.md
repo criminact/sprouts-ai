@@ -2,9 +2,6 @@
 
 Kid-safe, engaging chat for ages 4-8. The service uses Groq for LLM responses with guardrails that classify intent using the full conversation history, ask clarifying questions for unsafe/bad intent, and answer safe informational queries in a brief, child-friendly style.
 
-## High Level Architecure Diagram
-![Sprouts Test UI Screenshot](arch.png)
-
 ## Features
 - Intent classification using full chat history (Groq JSON output)
 - PII masking (emails/phones) before moderation
