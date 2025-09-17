@@ -36,3 +36,21 @@ class AskResponse(BaseModel):
     safety: Dict[str, Any] = {}
 
 
+# LLM output schemas (used for Groq JSON schema response_format)
+class LLMAnswer(BaseModel):
+    message: str
+    suggested_next: Optional[str] = None
+
+
+class LLMClarify(BaseModel):
+    message: str
+
+
+class LLMModeration(BaseModel):
+    intent: str
+    must_block: bool
+    category: str
+    severity: float
+    reasons: List[str] = []
+
+

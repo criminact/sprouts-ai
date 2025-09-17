@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from groq import Groq
 
@@ -14,15 +14,18 @@ def groq_chat_completion(
     prompt: Optional[str] = None,
     messages: Optional[List[Dict[str, str]]] = None,
     *,
-    model: str = "openai/gpt-oss-20b",
+    model: str = "moonshotai/kimi-k2-instruct-0905",
     api_key: Optional[str] = None,
     extra_params: Optional[Dict[str, Any]] = None,
+    response_schema: Optional[Type[Any]] = None,
 ) -> Dict[str, Any]:
     """Request a non-streaming JSON response from Groq chat completions.
 
     Minimal configuration: provide either ``prompt`` or ``messages``. Optionally override the
     ``model`` and ``api_key``. All other request parameters follow sensible defaults matching
     the given sample and can be overridden via ``extra_params`` if necessary.
+    If ``response_schema`` (Pydantic BaseModel subclass) is provided, Groq will be asked to
+    return that JSON schema and the output will be validated before returning as a dict.
     """
     if (prompt is None) == (messages is None):
         raise ValueError("Provide exactly one of 'prompt' or 'messages'.")
@@ -43,14 +46,31 @@ def groq_chat_completion(
     request_params: Dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": 1.0,
+        "temperature": 0.6,
         "max_completion_tokens": 8192,
         "top_p": 1.0,
-        "reasoning_effort": "high",
+        # "reasoning_effort": "high",
         "stream": False,
         "response_format": {"type": "json_object"},
         "stop": None,
     }
+
+    # If a Pydantic schema is provided, request strict json_schema output
+    if response_schema is not None:
+        try:
+            schema = response_schema.model_json_schema()  # type: ignore[attr-defined]
+        except Exception as exc:
+            raise ValueError(
+                "response_schema must be a Pydantic BaseModel subclass"
+            ) from exc
+        request_params["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": response_schema.__name__,
+                "schema": schema,
+            },
+        }
+
     if extra_params:
         request_params.update(extra_params)
 
@@ -70,9 +90,16 @@ def groq_chat_completion(
     if not content:
         raise ValueError("Empty content received from Groq.")
 
-    try:
-        return json.loads(content)
-    except Exception as exc:
-        raise ValueError("Failed to parse JSON content from Groq response.") from exc
+    raw_obj = json.loads(content)
+
+    # Validate with Pydantic if schema provided; return plain dict
+    if response_schema is not None:
+        try:
+            validated = response_schema.model_validate(raw_obj)  # type: ignore[attr-defined]
+            return json.loads(validated.model_dump_json())
+        except Exception as exc:
+            raise ValueError("Failed to validate JSON content against response_schema.") from exc
+
+    return raw_obj
 
 
