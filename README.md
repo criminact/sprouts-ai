@@ -7,7 +7,7 @@ Kid-safe, engaging chat for ages 4-8. The service uses Groq for LLM responses wi
 - PII masking (emails/phones) before moderation
 - Clarify-first approach for unsafe/bad intent (one gentle, supportive question)
 - Kid-friendly answers for safe queries
-- FastAPI server with `/ask` and `/health` endpoints
+- FastAPI server with `/ask`, `/health`, and JSON metrics at `/metrics`
 
 ## Requirements
 - Python 3.11+
@@ -54,6 +54,32 @@ python sprouts/main.py
   ],
   "model": "openai/gpt-oss-20b",
   "extra_params": null
+}
+```
+
+### Metrics
+- GET `/metrics`
+- Returns a human-friendly JSON summary of two counters:
+  - `app_requests_total{endpoint,status_code,safe}`: total requests processed
+  - `app_unsafe_flagged_total{reason}`: total unsafe prompts flagged by moderation
+
+Example
+```bash
+curl -s http://localhost:8000/metrics | jq
+```
+
+Sample response
+```json
+{
+  "requests": {
+    "total": 2,
+    "by_safe": { "true": 1, "false": 1 },
+    "by_status_code": { "200": 1, "500": 1 }
+  },
+  "unsafe_flagged": {
+    "total": 1,
+    "by_reason": { "violence": 1 }
+  }
 }
 ```
 
@@ -152,6 +178,7 @@ flowchart TD
 sprouts/
   main.py              # FastAPI app and runner
   routes.py            # /ask and /health endpoints
+  metrics.py           # Prometheus counters used for JSON metrics
   utils.py             # groq_chat_completion JSON helper
   guardrail/
     moderation.py      # classify_intent using full history
